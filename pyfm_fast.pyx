@@ -4,7 +4,6 @@
 # cython: wraparound=False
 #
 # Author: Corey Lynch <coreylynch9@gmail.com>
-#
 # License: BSD Style.
 
 import numpy as np
@@ -25,6 +24,8 @@ DEF REGRESSION = 0
 DEF CLASSIFICATION = 1
 DEF OPTIMAL = 0
 DEF INVERSE_SCALING = 1
+
+
 
 cdef class FM_fast(object):
     """Factorization Machine fitted by minimizing a regularized empirical loss with adaptive SGD.
@@ -203,15 +204,15 @@ cdef class FM_fast(object):
         if self.k0 > 0:
             result += w0
         if self.k1 > 0:
-            for i in xrange(xnnz):
+            for i in range(xnnz):  # changed from xrange to range
                 feature = x_ind_ptr[i]
                 assert(feature < self.num_attributes)
                 w_dash = w[feature] - learning_rate * (grad_w[feature] + 2 * reg_w * w[feature])
                 result += w_dash * x_data_ptr[i]
-        for f in xrange(self.num_factors):
+        for f in range(self.num_factors):  # changed from xrange to range
             sum_[f] = 0.0
             sum_sqr_[f] = 0.0
-            for i in xrange(xnnz):
+            for i in range(xnnz):  # changed from xrange to range
                 feature = x_ind_ptr[i]
                 v_dash = v[f,feature] - learning_rate * (grad_v[f,feature] + 2 * reg_v[f] * v[f,feature])
                 d = v_dash * x_data_ptr[i]
@@ -355,19 +356,19 @@ cdef class FM_fast(object):
 
         if self.k1 > 0:
             lambda_w_grad = 0.0
-            for i in xrange(validation_xnnz):
+            for i in range(validation_xnnz):  # changed from xrange to range
                 feature = validation_x_ind_ptr[i]
                 lambda_w_grad += validation_x_data_ptr[i] * w[feature]
             lambda_w_grad = -2 * learning_rate * lambda_w_grad
             reg_w -= learning_rate * grad_loss * lambda_w_grad
             reg_w = max(0.0, reg_w)
 
-        for f in xrange(self.num_factors):
+        for f in range(self.num_factors):  # changed from xrange to range
             sum_f = 0.0
             sum_f_dash = 0.0
             sum_f_dash_f = 0.0
 
-            for i in xrange(validation_xnnz):
+            for i in range(validation_xnnz):  # changed from xrange to range
                 feature = validation_x_ind_ptr[i]
                 v_dash = v[f,feature] - learning_rate * (grad_v[f,feature] + 2 * reg_v[f] * v[f,feature])
                 sum_f_dash += v_dash * validation_x_data_ptr[i]
@@ -428,7 +429,7 @@ cdef class FM_fast(object):
                                           validation_xnnz, validation_y)
             if self.verbose > 0:
                 error_type = "MSE" if self.task == REGRESSION else "log loss"
-                print "Training %s: %.5f" % (error_type, (self.sumloss / self.count))
+                print("Training %s: %.5f" % (error_type, (self.sumloss / self.count)))
 
     def __getstate__(self):
         # Implements Pickle interface.
@@ -471,8 +472,9 @@ cdef _log_loss(DOUBLE p, DOUBLE y):
 cdef _squared_loss(DOUBLE p, DOUBLE y):
     return 0.5 * (p - y) * (p - y)
 
+
 cdef class CSRDataset:
-    """An sklearn ``SequentialDataset`` backed by a scipy sparse CSR matrix. This is an ugly hack for the moment until I find the best way to link to sklearn. """
+    """An sklearn ``SequentialDataset`` backed by a scipy sparse CSR matrix."""
 
     cdef Py_ssize_t n_samples
     cdef int current_index
@@ -488,34 +490,11 @@ cdef class CSRDataset:
     cdef DOUBLE *sample_weight_data
 
     def __cinit__(self, np.ndarray[DOUBLE, ndim=1, mode='c'] X_data,
-                  np.ndarray[INTEGER, ndim=1, mode='c'] X_indptr,
-                  np.ndarray[INTEGER, ndim=1, mode='c'] X_indices,
-                  np.ndarray[DOUBLE, ndim=1, mode='c'] Y,
-                  np.ndarray[DOUBLE, ndim=1, mode='c'] sample_weight):
-        """Dataset backed by a scipy sparse CSR matrix.
+        np.ndarray[INTEGER, ndim=1, mode='c'] X_indptr,
+        np.ndarray[INTEGER, ndim=1, mode='c'] X_indices,
+        np.ndarray[DOUBLE, ndim=1, mode='c'] Y,
+        np.ndarray[DOUBLE, ndim=1, mode='c'] sample_weight):
 
-        The feature indices of ``x`` are given by x_ind_ptr[0:nnz].
-        The corresponding feature values are given by
-        x_data_ptr[0:nnz].
-
-        Parameters
-        ----------
-        X_data : ndarray, dtype=np.float64, ndim=1, mode='c'
-            The data array of the CSR matrix; a one-dimensional c-continuous
-            numpy array of dtype np.float64.
-        X_indptr : ndarray, dtype=np.int32, ndim=1, mode='c'
-            The index pointer array of the CSR matrix; a one-dimensional
-            c-continuous numpy array of dtype np.int32.
-        X_indices : ndarray, dtype=np.int32, ndim=1, mode='c'
-            The column indices array of the CSR matrix; a one-dimensional
-            c-continuous numpy array of dtype np.int32.
-        Y : ndarray, dtype=np.float64, ndim=1, mode='c'
-            The target values; a one-dimensional c-continuous numpy array of
-            dtype np.float64.
-        sample_weights : ndarray, dtype=np.float64, ndim=1, mode='c'
-            The weight of each sample; a one-dimensional c-continuous numpy
-            array of dtype np.float64.
-        """
         self.n_samples = Y.shape[0]
         self.current_index = -1
         self.X_data_ptr = <DOUBLE *>X_data.data
@@ -523,10 +502,7 @@ cdef class CSRDataset:
         self.X_indices_ptr = <INTEGER *>X_indices.data
         self.Y_data_ptr = <DOUBLE *>Y.data
         self.sample_weight_data = <DOUBLE *> sample_weight.data
-        # Use index array for fast shuffling
-        cdef np.ndarray[INTEGER, ndim=1,
-                        mode='c'] index = np.arange(0, self.n_samples,
-                                                    dtype=np.int32)
+        cdef np.ndarray[INTEGER, ndim=1, mode='c'] index = np.arange(0, self.n_samples, dtype=np.int32)
         self.index = index
         self.index_data_ptr = <INTEGER *> index.data
 
@@ -544,7 +520,6 @@ cdef class CSRDataset:
         x_ind_ptr[0] = self.X_indices_ptr + offset
         nnz[0] = self.X_indptr_ptr[sample_idx + 1] - offset
         sample_weight[0] = self.sample_weight_data[sample_idx]
-
         self.current_index = current_index
 
     cdef void shuffle(self, seed):
